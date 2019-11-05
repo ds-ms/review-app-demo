@@ -1,0 +1,16 @@
+apiVersion : apps/v1beta1
+kind: Deployment
+metadata:
+  name: dsmsreviewappdemo 
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dsmsreviewappdemo 
+    spec:
+      containers:
+        - name: dsmsreviewappdemo 
+          image: desattir.azurecr.io/dsmsreviewappdemo
+          ports:
+          - containerPort: 80
