@@ -117,8 +117,8 @@ stages:
               azureSubscription: $(azureConnection)
               inlineScript: |
                 $clusterId="/subscriptions/c00d16c7-6c1f-4c03-9be1-6934a4c49682/resourcegroups/desattiraks/providers/Microsoft.ContainerService/managedClusters/desattiraks"
-                $resourceGroupName=$(cut -d '/' -f5 <<< "$clusterId")
-                $clusterName=$(cut -d '/' -f9 <<< "$clusterId")
+                $resourceGroupName=$(echo "$clusterId" | cut -d '/' -f5 )
+                $clusterName=$(echo "$clusterId" | cut -d '/' -f9 )
                 az aks use-dev-spaces -n $clusterName -g $resourceGroupName -s default -y
                 $hostSuffix=$(azds show-context -o json | ConvertFrom-Json).controller.hostSuffix
                 echo "##vso[task.setvariable variable=HostSuffix]$hostSuffix"
