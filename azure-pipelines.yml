@@ -83,15 +83,14 @@ stages:
   - deployment: DeployPullRequest
     displayName: Deploy Pull request
     condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/pull/'))
-    pool:
-      vmImage: $(vmImageName)
+    pool: default
       
     environment: 'dsmsreviewappdemo.$(k8sNamespaceForPR)'
     strategy:
       runOnce:
         deploy:
           steps:
-          - reviewApp: review-demo
+          - reviewApp: default
 
           - task: Kubernetes@1
             displayName: 'Create a new namespace for the pull request'
@@ -108,35 +107,44 @@ stages:
               namespace: $(k8sNamespaceForPR)
               dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
           
+          - task: AzureCLI@2
+            displayName: get host suffix
+            inputs:
+              scriptType: powershell
+              scriptLocation: inlineScript
+              azureSubscription: $(azureConnection)
+              inlineScript: |
+                $clusterId="/subscriptions/c00d16c7-6c1f-4c03-9be1-6934a4c49682/resourcegroups/desattiraks/providers/Microsoft.ContainerService/managedClusters/desattiraks"
+                $resourceGroupName=$(cut -d '/' -f5 <<< "$clusterId")
+                $clusterName=$(cut -d '/' -f9 <<< "$clusterId")
+                az aks use-dev-spaces -n $clusterName -g $resourceGroupName -s default -y
+                $hostSuffix=$(azds show-context -o json | ConvertFrom-Json).controller.hostSuffix
+                echo "##vso[task.setvariable variable=HostSuffix]$hostSuffix"
+
+          - task: KubernetesManifest@0
+            displayName: Bake manifests
+            name: bake
+            inputs:
+              action: bake
+              helmChart: charts/devspaces-v0.0.1.tgz
+              overrides: |
+                image.repository:$(containerRegistry)/$(imageRepository)
+                service.port:80 
+                ingress.enabled:true
+                ingress.hostname:$(k8sNamespaceForPR).s.app.$(HostSuffix)
+                
           - task: KubernetesManifest@0
             displayName: Deploy to the new namespace in the Kubernetes cluster
             inputs:
               action: deploy
               namespace: $(k8sNamespaceForPR)
               manifests: |
-                $(Pipeline.Workspace)/manifests/deployment.yml
-                $(Pipeline.Workspace)/manifests/service.yml
+                $(bake.manifestsBundle)
               imagePullSecrets: |
                 $(imagePullSecret)
               containers: |
                 $(containerRegistry)/$(imageRepository):$(tag)
-          
-          - task: Kubernetes@1
-            name: get
-            displayName: 'Get services in the new namespace'
-            continueOnError: true
-            inputs:
-              command: get
-              namespace: $(k8sNamespaceForPR)
-              arguments: svc
-              outputFormat: jsonpath='https://{.items[0].status.loadBalancer.ingress[0].ip}:{.items[0].spec.ports[0].port}'
-              
-          # Getting the IP of the deployed service and writing it to a variable for posing comment
+
           - script: |
-              url="$(get.KubectlOutput)"
-              message="Deployment to your Review App succeeded."
-              if [ ! -z "$url" -a "$url" != "https://:" ] 
-              then
-                message="${message}<br><br>You can navigate to $url to test your changes"
-              fi
+              message="Deployment to your Review App succeeded.<br><br>You can navigate to http://$(k8sNamespaceForPR).s.app.$(HostSuffix) to test your changes"
               echo "##vso[task.setvariable variable=GITHUB_COMMENT]$message"
