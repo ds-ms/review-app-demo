@@ -23,6 +23,7 @@ variables:
   
   # Name of the new namespace being created to deploy the PR changes.
   k8sNamespaceForPR: '$(system.pullRequest.sourceBranch)'
+  azureConnection: RMDev
 
 stages:
 - stage: Build
