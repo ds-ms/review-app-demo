@@ -84,7 +84,8 @@ stages:
   - deployment: DeployPullRequest
     displayName: Deploy Pull request
     condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/pull/'))
-    pool: default
+    pool:
+      vmImage: $(vmImageName)
       
     environment: 'dsmsreviewappdemo.$(k8sNamespaceForPR)'
     strategy:
