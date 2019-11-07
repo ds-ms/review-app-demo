@@ -44,8 +44,8 @@ stages:
         tags: |
           $(tag)
           
-    - upload: manifests
-      artifact: manifests
+    - upload: charts
+      artifact: charts
 
 - stage: Deploy
   displayName: Deploy stage
@@ -128,7 +128,7 @@ stages:
             name: bake
             inputs:
               action: bake
-              helmChart: charts/devspaces-v0.0.1.tgz
+              helmChart: $(Pipeline.Workspace)/charts/devspaces-v0.0.1.tgz
               overrides: |
                 image.repository:$(containerRegistry)/$(imageRepository)
                 service.port:80 
